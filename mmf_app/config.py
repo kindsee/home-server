@@ -1,11 +1,14 @@
 import os
+from dotenv import load_dotenv
 
-# URI de conexión a MariaDB
-# Ajusta usuario, contraseña, host y nombre de BD según tus datos
-SQLALCHEMY_DATABASE_URI = (
-    'mysql+pymysql://MMFDbUser:Dako-0kad@192.168.1.200/MMFDatabase'
-)
+load_dotenv()  # Carga las variables desde el archivo .env
+
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_NAME = os.getenv('DB_NAME')
+
+SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}'
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-# Clave secreta para formularios
-SECRET_KEY = os.environ.get('SECRET_KEY', 'Dako-0kad')
+SECRET_KEY = os.getenv('SECRET_KEY', 'default-secret')
