@@ -1,0 +1,23 @@
+<nav class="navbar navbar-light bg-light mb-4">
+  <div class="container d-flex justify-content-between align-items-center">
+    <!-- Botón Dashboard -->
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary" title="Dashboard">
+      📊
+    </a>
+
+    <!-- Título opcional centrado -->
+    <span class="navbar-text fw-bold text-secondary">
+      Gestor de Cuentas
+    </span>
+
+    <!-- Iconos admin y consolidar -->
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('consolidar') }}" class="btn btn-outline-secondary" title="Consolidar">
+        ⚖️
+      </a>
+      <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary" title="Administrar">
+        ⚙️
+      </a>
+    </div>
+  </div>
+</nav>

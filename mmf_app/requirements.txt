@@ -1,0 +1,5 @@
+flask
+flask_sqlalchemy
+pymysql
+python-dotenv
+python-dateutil
