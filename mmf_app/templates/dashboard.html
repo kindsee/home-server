@@ -11,59 +11,80 @@
 <body>
   {% include 'navbar.html' %}
   <h1 class="text-center">Dashboard de Cuentas</h1>
+
   <form method="get" class="d-flex justify-content-center align-items-center mb-4">
-  <input type="date" name="fecha" value="{{ fecha }}" class="form-control me-2" style="max-width: 180px;">
-  <button type="submit" class="btn btn-primary">Actualizar</button>
- </form>
+    <input type="date" name="fecha" value="{{ fecha }}" class="form-control me-2" style="max-width: 180px;">
+    <button type="submit" class="btn btn-primary">Actualizar</button>
+  </form>
  
- <!-- Listado de saldos en tarjeta centrada con dos filas -->
-<div class="d-flex justify-content-center mb-4">
-  <div class="card shadow rounded-4" style="min-width: 50%; max-width: 90%;">
-    <div class="card-body text-center fs-6">
-      <div class="row justify-content-center">
-        {% for c in datos %}
-          <div class="col-md-6 mb-2" style="color: {{ colores[c.nombre] }};">
-            <strong>{{ c.nombre }}</strong>: {{ '%.2f'|format(c.saldo) }} €
-          </div>
-        {% endfor %}
+  <!-- Listado de saldos -->
+  <div class="d-flex justify-content-center mb-4">
+    <div class="card shadow rounded-4" style="min-width: 50%; max-width: 90%;">
+      <div class="card-body text-center fs-6">
+        <div class="row justify-content-center">
+          {% for c in datos %}
+            <div class="col-md-6 mb-2" style="color: {{ colores[c.nombre] }};">
+              <strong>{{ c.nombre }}</strong>: {{ '%.2f'|format(c.saldo) }} €
+            </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-  <!-- (Opcional) gráfico lineal-->
-<canvas id="lineChart" width="900" height="450"></canvas>
+  <!-- Gráfico -->
+  <div class="d-flex justify-content-center">
+   <canvas id="lineChart" style="width: 100%; height: 500px;"></canvas>
+  </div>
 
-<script>
-  const datosGrafico = {{ datos_grafico|tojson }};
-  const ctx = document.getElementById('lineChart').getContext('2d');
+  <script>
+    const datosGrafico = {{ datos_grafico|tojson }};
+    const ctx = document.getElementById('lineChart').getContext('2d');
+    const fechas = Object.values(datosGrafico)[0]?.fechas || [];
 
-  const fechas = Object.values(datosGrafico)[0]?.fechas || [];
+    const datasets = Object.entries(datosGrafico).map(([nombre, data], i) => ({
+      label: nombre,
+      data: data.saldos.map(v => Math.max(v, 0.01)),  // Evita ceros para la escala logarítmica
+      fill: false,
+      borderColor: `hsl(${(i * 60) % 360}, 70%, 50%)`,
+      tension: 0.1
+    }));
 
-  const datasets = Object.entries(datosGrafico).map(([nombre, data], i) => ({
-    label: nombre,
-    data: data.saldos,
-    fill: false,
-    borderColor: `hsl(${(i * 60) % 360}, 70%, 50%)`,
-    tension: 0.1
-  }));
-
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: fechas,
-      datasets: datasets
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top' } },
-      scales: {
-        y: { beginAtZero: true, title: { display: true, text: 'Saldo (€)' } },
-        x: { title: { display: true, text: 'Fecha' } }
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: fechas,
+        datasets: datasets
+      },
+      options: {
+        responsive: false,  // Para mantener el tamaño fijo de 900px
+        plugins: {
+          legend: { position: 'top' }
+        },
+        scales: {
+        y: {
+          type: 'linear',
+          min: -100,  // O más bajo si hay saldos negativos
+          max: 6000,  // Ajusta según tus saldos más altos
+          title: {
+            display: true,
+            text: 'Saldo (€)'
+          },
+          ticks: {
+            callback: function (value) {
+              return '€' + value;
+            }
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Fecha'
+          }
+        }
       }
-    }
-  });
-</script>
-
+      }
+    });
+  </script>
 </body>
 </html>

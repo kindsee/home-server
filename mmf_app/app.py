@@ -156,12 +156,35 @@ def create_fixed_expense():
 
 @app.route('/consolidar', methods=['GET', 'POST'])
 def consolidar():
-    # --- (aquí va tu código POST, idéntico al que ya tienes) ---
+    from decimal import Decimal
+    
     if request.method == 'POST':
-        # ... insertar ajuste ...
+        cuenta_id = int(request.form['cuenta_id'])
+        fecha_str = request.form['fecha']
+        saldo_reportado = Decimal(request.form['saldo_reportado'])
+
+        fecha_obj = date.fromisoformat(fecha_str)
+        saldo_calculado = calcular_balance_cuenta(cuenta_id, fecha_obj)
+
+        ajuste = saldo_reportado - Decimal(str(saldo_calculado))
+
+
+        if ajuste == 0:
+            flash('El saldo ya coincide, no se necesita ajuste.', 'success')
+        else:
+            nuevo_ajuste = Adjustment(
+                cuenta_id=cuenta_id,
+                fecha=fecha_obj,
+                monto_ajuste=ajuste,
+                descripcion='Consolidación manual'
+            )
+            db.session.add(nuevo_ajuste)
+            db.session.commit()
+            flash(f'Consolidación registrada con un ajuste de {ajuste:.2f} €', 'success')
+
         return redirect(url_for('consolidar', cuenta_id=cuenta_id, fecha=fecha_str))
 
-    # --- Empieza GET ---
+    # GET
     cuenta_id = request.args.get('cuenta_id', type=int)
     fecha_str = request.args.get('fecha')
     fecha_obj = date.fromisoformat(fecha_str) if fecha_str else date.today()
@@ -173,13 +196,11 @@ def consolidar():
     saldo_final = None
 
     if cuenta:
-        # Rango de visualización
         fecha_inicio = fecha_obj - timedelta(weeks=8)
-        fecha_fin    = fecha_obj + timedelta(weeks=4)
-
+        fecha_fin = fecha_obj + timedelta(weeks=4)
         eventos = []
 
-        # 1) Gastos fijos
+        # Gastos fijos
         gastos_fijos = FixedExpense.query.filter_by(cuenta_id=cuenta.id).all()
         for g in gastos_fijos:
             f = g.fecha_inicio
@@ -200,7 +221,7 @@ def consolidar():
                 else:
                     break
 
-        # 2) Transacciones puntuales
+        # Transacciones
         transacciones = Transaction.query.filter(
             Transaction.cuenta_id == cuenta.id,
             Transaction.fecha >= fecha_inicio,
@@ -214,7 +235,7 @@ def consolidar():
                 'tipo': 'puntual'
             })
 
-        # 3) Ajustes (incluye el que acabas de crear)
+        # Ajustes
         ajustes = Adjustment.query.filter(
             Adjustment.cuenta_id == cuenta.id,
             Adjustment.fecha >= fecha_inicio,
@@ -228,7 +249,6 @@ def consolidar():
                 'tipo': 'ajuste'
             })
 
-        # 4) Ordenar todos los eventos y calcular saldo acumulado
         eventos.sort(key=lambda e: e['fecha'])
         saldo = float(cuenta.saldo_inicial)
         for e in eventos:
@@ -236,8 +256,6 @@ def consolidar():
             e['saldo'] = round(saldo, 2)
 
         saldo_final = round(saldo, 2)
-
-        # 5) Filtrar para mostrar solo ventana de ±2 meses
         movimientos = [e for e in eventos if fecha_inicio <= e['fecha'] <= fecha_fin]
 
     return render_template('consolidar.html',

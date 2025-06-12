@@ -7,7 +7,7 @@ class Account(db.Model):
     saldo_inicial = db.Column(db.Numeric(12,2), nullable=False)
     transactions = db.relationship('Transaction', backref='account')
     fixed_expenses = db.relationship('FixedExpense', backref='account')
-    adjustments = db.relationship('Adjustment', backref='account')
+    # adjustments = db.relationship('Adjustment', backref='account')
     
     ajustes = db.relationship('Adjustment', back_populates='cuenta', cascade='all, delete-orphan')
     

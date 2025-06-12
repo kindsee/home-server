@@ -1,6 +1,5 @@
 # Ignorar archivos de configuración sensibles
 .env
-conf.env
 
 # Entornos virtuales
 venv/

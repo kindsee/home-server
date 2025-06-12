@@ -11,7 +11,7 @@ class Adjustment(db.Model):
     monto_ajuste = Column(Float, nullable=False)
     descripcion = Column(String(255), nullable=True)  # <-- Nueva columna
 
-    cuenta = relationship('Account', back_populates='ajustes')  # ejemplo
+    cuenta = db.relationship('Account', back_populates='ajustes')  # ejemplo
 
     def to_dict(self):
         return {
