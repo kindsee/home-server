@@ -1,27 +1,21 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from db  import db
-from datetime import datetime
-from datetime import date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 import config
-
-
 
 app = Flask(__name__)
 app.config.from_object(config)
 db.init_app(app)
 
-# Importar modelos
 from models.account import Account
 from models.transaction import Transaction
 from models.fixed_expense import FixedExpense
 from models.adjustment import Adjustment
 
-# Utilidades
 with app.app_context():
     from utils.reconciler import calcular_balance_cuenta
-from datetime import timedelta
 
 @app.route('/')
 def index():
@@ -32,92 +26,47 @@ def dashboard():
     from utils.reconciler import calcular_balance_cuenta
 
     fecha_str = request.args.get('fecha')
-    if fecha_str:
-        fecha_obj = date.fromisoformat(fecha_str)
-    else:
-        fecha_obj = date.today()
+    fecha_obj = date.fromisoformat(fecha_str) if fecha_str else date.today()
 
-    # Creamos lista de fechas semanales: 8 semanas antes + fecha + 4 semanas después
-    fechas_rango = []
-    # 8 semanas antes (semana -8 a -1)
-    for i in range(8, 0, -1):
-        fechas_rango.append(fecha_obj - timedelta(weeks=i))
-    # fecha dada (semana 0)
-    fechas_rango.append(fecha_obj)
-    # 4 semanas después (semana 1 a 4)
-    for i in range(1, 5):
-        fechas_rango.append(fecha_obj + timedelta(weeks=i))
+    fecha_inicio = fecha_obj - timedelta(days=30)
+    fecha_fin = fecha_obj + timedelta(days=30)
+    fechas_rango = [fecha_inicio + timedelta(days=i) for i in range((fecha_fin - fecha_inicio).days + 1)]
 
     cuentas = Account.query.all()
 
     datos_grafico = {}
     for c in cuentas:
-        saldos = []
-        for f in fechas_rango:
-            saldo = calcular_balance_cuenta(c.id, f)
-            saldos.append(round(saldo, 2))
+        saldos = [round(calcular_balance_cuenta(c.id, f), 2) for f in fechas_rango]
         datos_grafico[c.nombre] = {
             'fechas': [f.isoformat() for f in fechas_rango],
             'saldos': saldos
         }
 
-    # Para mostrar el saldo de la fecha actual en la lista simple
-    datos_saldos = []
-    for c in cuentas:
-        saldo_actual = calcular_balance_cuenta(c.id, fecha_obj)
-        datos_saldos.append({
-            'nombre': c.nombre,
-            'saldo': round(saldo_actual, 2)
-    })
+    datos_saldos = [{'nombre': c.nombre, 'saldo': round(calcular_balance_cuenta(c.id, fecha_obj), 2)} for c in cuentas]
 
-    colores_disponibles = [
-        '#bcbd22',  # amarillo-verdoso
-        '#2ca02c',  # verde
-        '#e377c2',  # rosa
-        '#17becf',  # turquesa
-        '#1f77b4',  # azul
-        '#d62728',  # rojo
-        '#ff7f0e',  # naranja
-        '#9467bd',  # morado
-        '#8c564b',  # marrón        
-        '#7f7f7f',  # gris
-    ]
+    colores_disponibles = ['#bcbd22', '#2ca02c', '#e377c2', '#17becf', '#1f77b4', '#d62728', '#ff7f0e', '#9467bd', '#8c564b', '#7f7f7f']
+    colores = {c.nombre: colores_disponibles[i % len(colores_disponibles)] for i, c in enumerate(cuentas)}
 
-    colores = {}
-    for i, c in enumerate(cuentas):
-        colores[c.nombre] = colores_disponibles[i % len(colores_disponibles)]
-
-    return render_template('dashboard.html',
-                           fecha=fecha_obj.isoformat(),
-                           datos=datos_saldos,
-                           datos_grafico=datos_grafico,
-                           colores=colores)
+    return render_template('dashboard.html', fecha=fecha_obj.isoformat(), datos=datos_saldos, datos_grafico=datos_grafico, colores=colores)
 
 @app.route('/api/transactions')
 def api_transactions():
-    mes = request.args.get('mes')  # formato 'YYYY-MM'
+    mes = request.args.get('mes')
     year, month = map(int, mes.split('-'))
-    # Obtener gastos (transacciones negativas)
     inicio = date(year, month, 1)
     fin = inicio + relativedelta(months=1) - relativedelta(days=1)
-    gastos = Transaction.query.filter(
-        Transaction.fecha >= inicio,
-        Transaction.fecha <= fin
-    ).all()
+    gastos = Transaction.query.filter(Transaction.fecha >= inicio, Transaction.fecha <= fin).all()
     return jsonify([t.to_dict() for t in gastos])
-
 
 @app.route('/admin')
 def admin():
     cuentas = Account.query.all()
     gastos_fijos = FixedExpense.query.all()
-    return render_template('admin.html', cuentas=cuentas, gastos_fijos=gastos_fijos,date=date)
+    return render_template('admin.html', cuentas=cuentas, gastos_fijos=gastos_fijos, date=date)
 
 @app.route('/admin/create_account', methods=['POST'])
 def create_account():
-    nombre = request.form['nombre']
-    saldo_ini = Decimal(request.form['saldo_inicial'])
-    nueva = Account(nombre=nombre, saldo_inicial=saldo_ini)
+    nueva = Account(nombre=request.form['nombre'], saldo_inicial=Decimal(request.form['saldo_inicial']))
     db.session.add(nueva)
     db.session.commit()
     return redirect(url_for('admin'))
@@ -125,8 +74,6 @@ def create_account():
 @app.route('/admin/create_fixed_expense', methods=['POST'])
 def create_fixed_expense():
     try:
-        print("Formulario recibido:", request.form)
-
         cuenta_id = int(request.form['cuenta_id'])
         descripcion = request.form['nombre']
         monto = Decimal(request.form['importe'])
@@ -135,29 +82,18 @@ def create_fixed_expense():
         fecha_fin_raw = request.form.get('fecha_fin')
         fecha_fin = datetime.strptime(fecha_fin_raw, "%Y-%m-%d").date() if fecha_fin_raw else None
 
-        fe = FixedExpense(
-            cuenta_id=cuenta_id,
-            descripcion=descripcion,
-            monto=monto,
-            frecuencia=frecuencia,
-            fecha_inicio=fecha_inicio,
-            fecha_fin=fecha_fin
-        )
-
+        fe = FixedExpense(cuenta_id=cuenta_id, descripcion=descripcion, monto=monto, frecuencia=frecuencia, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
         db.session.add(fe)
         db.session.commit()
         flash('Gasto fijo añadido correctamente', 'success')
-
     except Exception as e:
         flash(f'Error al añadir gasto fijo: {e}', 'danger')
-        print(f'Error: {e}')
-
     return redirect(url_for('admin'))
 
 @app.route('/consolidar', methods=['GET', 'POST'])
 def consolidar():
     from decimal import Decimal
-    
+
     if request.method == 'POST':
         cuenta_id = int(request.form['cuenta_id'])
         fecha_str = request.form['fecha']
@@ -167,7 +103,6 @@ def consolidar():
         saldo_calculado = calcular_balance_cuenta(cuenta_id, fecha_obj)
 
         ajuste = saldo_reportado - Decimal(str(saldo_calculado))
-
 
         if ajuste == 0:
             flash('El saldo ya coincide, no se necesita ajuste.', 'success')
@@ -184,7 +119,7 @@ def consolidar():
 
         return redirect(url_for('consolidar', cuenta_id=cuenta_id, fecha=fecha_str))
 
-    # GET
+    # --- Método GET ---
     cuenta_id = request.args.get('cuenta_id', type=int)
     fecha_str = request.args.get('fecha')
     fecha_obj = date.fromisoformat(fecha_str) if fecha_str else date.today()
@@ -194,6 +129,7 @@ def consolidar():
 
     movimientos = []
     saldo_final = None
+    saldo_calculado = None
 
     if cuenta:
         fecha_inicio = fecha_obj - timedelta(weeks=8)
@@ -250,6 +186,7 @@ def consolidar():
             })
 
         eventos.sort(key=lambda e: e['fecha'])
+
         saldo = float(cuenta.saldo_inicial)
         for e in eventos:
             saldo += e['importe']
@@ -257,27 +194,24 @@ def consolidar():
 
         saldo_final = round(saldo, 2)
         movimientos = [e for e in eventos if fecha_inicio <= e['fecha'] <= fecha_fin]
+        saldo_calculado = calcular_balance_cuenta(cuenta.id, fecha_obj)
 
     return render_template('consolidar.html',
                            cuentas=cuentas,
                            cuenta_id=cuenta_id,
                            fecha=fecha_str,
                            saldo_final=saldo_final,
+                           saldo_calculado=saldo_calculado,
                            movimientos=movimientos)
+
 
 @app.route('/admin/create_transaction', methods=['POST'])
 def create_transaction():
-    cuenta_id   = int(request.form['cuenta_id'])
-    descripcion = request.form['descripcion']
-    monto       = float(request.form['monto'])
-    fecha_str   = request.form.get('fecha') or date.today().isoformat()
-    fecha       = date.fromisoformat(fecha_str)
-
     nueva = Transaction(
-        cuenta_id=cuenta_id,
-        descripcion=descripcion,
-        monto=monto,
-        fecha=fecha
+        cuenta_id=int(request.form['cuenta_id']),
+        descripcion=request.form['descripcion'],
+        monto=float(request.form['monto']),
+        fecha=date.fromisoformat(request.form.get('fecha') or date.today().isoformat())
     )
     db.session.add(nueva)
     db.session.commit()

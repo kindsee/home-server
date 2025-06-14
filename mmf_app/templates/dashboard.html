@@ -38,53 +38,50 @@
   </div>
 
   <script>
-    const datosGrafico = {{ datos_grafico|tojson }};
-    const ctx = document.getElementById('lineChart').getContext('2d');
-    const fechas = Object.values(datosGrafico)[0]?.fechas || [];
+  const datosGrafico = {{ datos_grafico|tojson }};
+  const ctx = document.getElementById('lineChart').getContext('2d');
 
-    const datasets = Object.entries(datosGrafico).map(([nombre, data], i) => ({
-      label: nombre,
-      data: data.saldos.map(v => Math.max(v, 0.01)),  // Evita ceros para la escala logarítmica
-      fill: false,
-      borderColor: `hsl(${(i * 60) % 360}, 70%, 50%)`,
-      tension: 0.1
-    }));
+  const fechas = Object.values(datosGrafico)[0]?.fechas || [];
 
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: fechas,
-        datasets: datasets
+  const datasets = Object.entries(datosGrafico).map(([nombre, data], i) => ({
+    label: nombre,
+    data: data.saldos,
+    fill: false,
+    borderColor: `hsl(${(i * 60) % 360}, 70%, 50%)`,
+    tension: 0.2
+  }));
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: fechas,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
       },
-      options: {
-        responsive: false,  // Para mantener el tamaño fijo de 900px
-        plugins: {
-          legend: { position: 'top' }
-        },
-        scales: {
+      scales: {
         y: {
-          type: 'linear',
-          min: -100,  // O más bajo si hay saldos negativos
-          max: 6000,  // Ajusta según tus saldos más altos
-          title: {
-            display: true,
-            text: 'Saldo (€)'
-          },
-          ticks: {
-            callback: function (value) {
-              return '€' + value;
-            }
-          }
+          title: { display: true, text: 'Saldo (€)' }
         },
         x: {
-          title: {
-            display: true,
-            text: 'Fecha'
+          title: { display: true, text: 'Fecha' },
+          ticks: {
+            callback: function (value, index, ticks) {
+              const fecha = this.getLabelForValue(value);
+              const d = new Date(fecha);
+              return d.getDay() === 1 ? fecha : '';  // Mostrar solo lunes
+            },
+            autoSkip: false,
+            maxRotation: 0,
+            minRotation: 0
           }
         }
       }
-      }
-    });
-  </script>
+    }
+  });
+</script>
 </body>
 </html>

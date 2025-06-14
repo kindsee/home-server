@@ -33,7 +33,7 @@
     </div>
   </form>
 
-  {% if movimientos %}
+  {% if cuenta_id and fecha %}
     <!-- 2. Tabla de movimientos -->
     <table class="table table-striped mb-4">
       <thead>
@@ -65,25 +65,35 @@
 
     </table>
 
-    <h5 class="text-end">Saldo final: <strong>{{ '%.2f'|format(saldo_final) }} €</strong></h5>
+    {% if saldo_final is not none %}
+      <h5 class="text-end">Saldo final: <strong>{{ '%.2f'|format(saldo_final) }} €</strong></h5>
+    {% endif %}
 
     <hr>
 
     <!-- 3. Formulario de consolidación -->
-    <form method="post" action="{{ url_for('consolidar') }}"
-          class="row g-3 justify-content-center align-items-end">
-      <input type="hidden" name="cuenta_id" value="{{ cuenta_id }}">
-      <input type="hidden" name="fecha" value="{{ fecha }}">
-      <div class="col-auto">
-        <label for="saldo_reportado" class="form-label">Saldo Reportado (€)</label>
-        <input type="number" step="0.01" name="saldo_reportado"
-               id="saldo_reportado" class="form-control" required>
-      </div>
-      <div class="col-auto">
-        <button name="action" value="consolidar"
-                class="btn btn-success">Consolidar</button>
-      </div>
-    </form>
+<form method="post" action="{{ url_for('consolidar') }}"
+      class="row g-3 justify-content-center align-items-end">
+  <input type="hidden" name="cuenta_id" value="{{ cuenta_id }}">
+  <input type="hidden" name="fecha" value="{{ fecha }}">
+  
+  <div class="col-auto">
+    <label for="saldo_reportado" class="form-label">
+      Saldo Reportado (€)
+      {% if saldo_calculado is not none %}
+        <small class="text-muted">(calculado: {{ '%.2f'|format(saldo_calculado) }} €)</small>
+      {% endif %}
+    </label>
+    <input type="number" step="0.01" name="saldo_reportado"
+           id="saldo_reportado" class="form-control" required>
+  </div>
+  
+  <div class="col-auto">
+    <button name="action" value="consolidar"
+            class="btn btn-success">Consolidar</button>
+  </div>
+</form>
+
   {% endif %}
 
   {% with messages = get_flashed_messages(with_categories=true) %}
